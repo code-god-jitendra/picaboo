@@ -1,0 +1,12 @@
+# Node modules
+node_modules/
+
+# Environment Variables (if using any)
+.env
+
+# Uploaded images (if storing locally)
+uploads/
+
+# Log files
+logs/
+*.log
