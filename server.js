@@ -71,7 +71,7 @@ const upload = multer({ storage });
 // -----------------------
 // ROUTES TO SERVE HTML PAGES
 // -----------------------
-app.get('/', (req, res) => res.send('Welcome to Picaboo!'));
+app.get('/', (req, res) => res.render('index'));
 app.get('/signup', (req, res) => res.sendFile(path.join(__dirname, 'views', 'signup.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'views', 'login.html')));
 app.get('/explore', (req, res) => res.sendFile(path.join(__dirname, 'views', 'explore.html')));
@@ -407,4 +407,4 @@ app.get('/logout', (req, res) => {
 // START THE SERVER
 // -----------------------
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}/signup`));
