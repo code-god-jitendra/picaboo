@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Picaboo - Profile</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+  <!-- Navigation Bar -->
+  <nav class="bg-white shadow p-4 flex justify-between items-center">
+    <div class="text-xl font-bold">Picaboo</div>
+    <div>
+      <a href="/explore" class="mx-2 text-blue-500">Explore</a>
+      <a href="/inbox" class="mx-2 text-blue-500">Inbox</a>
+      <a href="/profile" class="mx-2 text-blue-500">Profile</a>
+      <a href="/logout" class="mx-2 text-red-500">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-4">Your Profile</h1>
+    <!-- Profile info -->
+    <div class="bg-white shadow p-4 rounded mb-4">
+      <h2 class="text-xl">Welcome, [Username]</h2>
+      <p>Friend count: [Number]</p>
+    </div>
+    <!-- Upload form -->
+    <div class="bg-white shadow p-4 rounded mb-4">
+      <h2 class="text-xl mb-2">Create a New Post</h2>
+      <form action="/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="image" required class="mb-2 p-2 border rounded">
+        <input type="text" name="caption" placeholder="Enter a caption..." class="p-2 border rounded">
+        <button type="submit" class="bg-blue-500 text-white p-2 rounded">Upload</button>
+      </form>
+    </div>
+    <!-- Display posts (this would be dynamically loaded) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Example post -->
+      <div class="bg-white shadow p-4 rounded">
+        <img src="/images/sample.jpg" alt="Your post" class="w-full h-48 object-cover rounded">
+        <p class="mt-2 text-center font-semibold">Sample Caption</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Picaboo - Inbox</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+  <!-- Navigation Bar -->
+  <nav class="bg-white shadow p-4 flex justify-between items-center">
+    <div class="text-xl font-bold">Picaboo</div>
+    <div>
+      <a href="/explore" class="mx-2 text-blue-500">Explore</a>
+      <a href="/inbox" class="mx-2 text-blue-500">Inbox</a>
+      <a href="/profile" class="mx-2 text-blue-500">Profile</a>
+      <a href="/logout" class="mx-2 text-red-500">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-4">Inbox</h1>
+    
+    <!-- Search Bar -->
+    <div class="mb-4">
+      <input type="text" id="searchInput" placeholder="Search friends..." 
+             class="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
+      <div id="searchResults" class="bg-white border rounded mt-1 hidden absolute z-10 w-96"></div>
+    </div>
+    
+    <!-- Conversation List -->
+    <div id="conversationsList" class="mb-4 bg-white rounded shadow"></div>
+    
+    <!-- Chat Window -->
+    <div id="chatContainer" class="bg-white shadow rounded p-4 mb-4" style="display: none;">
+      <div id="chatHeader" class="mb-2 font-bold text-lg"></div>
+      <div id="chatWindow" class="h-64 border p-2 overflow-y-scroll mb-2 bg-gray-50 rounded"></div>
+      <form id="chatForm" class="flex gap-2">
+        <input type="text" id="chatInput" placeholder="Type a message..." 
+               class="border p-2 flex-grow rounded focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const currentUserId = "<%= currentUserId %>";
+    const currentUsername = "<%= currentUsername %>";
+    const socket = io();
+    let currentChatRoom = null;
+
+    function getRoomName(userId1, userId2) {
+      return [userId1, userId2].sort().join('_');
+    }
+
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+
+    searchInput.addEventListener('input', async (e) => {
+      const searchTerm = e.target.value.trim();
+      if (searchTerm.length < 1) {
+        searchResults.classList.add('hidden');
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/search-users?username=${encodeURIComponent(searchTerm)}`);
+        const users = await response.json();
+        searchResults.innerHTML = '';
+        users.forEach(user => {
+          const div = document.createElement('div');
+          div.className = 'p-2 hover:bg-gray-100 cursor-pointer';
+          div.textContent = user.username;
+          div.onclick = () => startNewChat(user._id, user.username);
+          searchResults.appendChild(div);
+        });
+        searchResults.classList.remove('hidden');
+      } catch (err) {
+        console.error('Search error:', err);
+      }
+    });
+
+    function startNewChat(userId, username) {
+      currentChatRoom = getRoomName(currentUserId, userId);
+      socket.emit('join room', currentChatRoom);
+      document.getElementById('chatHeader').textContent = `Chat with ${username}`;
+      document.getElementById('chatContainer').style.display = 'block';
+      document.getElementById('chatWindow').innerHTML = '';
+      searchInput.value = '';
+      searchResults.classList.add('hidden');
+    }
+
+    // Conversation handling
+    async function loadConversations() {
+      try {
+        const response = await fetch('/conversations');
+        const convs = await response.json();
+        const convListDiv = document.getElementById('conversationsList');
+        convListDiv.innerHTML = '';
+        
+        convs.forEach(conv => {
+          const otherUser = conv.participants.find(p => p._id !== currentUserId);
+          const unreadCount = conv.unreadCounts?.[currentUserId] || 0;
+          
+          const convElement = document.createElement('div');
+          convElement.className = 'p-3 border-b hover:bg-gray-50 cursor-pointer flex justify-between items-center';
+          convElement.innerHTML = `
+            <div>
+              <span class="font-medium">${otherUser.username}</span>
+              <p class="text-gray-500 text-sm">${conv.lastMessage || 'No messages yet'}</p>
+            </div>
+            ${unreadCount > 0 ? `<span class="bg-red-500 text-white rounded-full px-2 py-1 text-xs">${unreadCount}</span>` : ''}
+          `;
+          
+          convElement.addEventListener('click', () => openConversation(conv, otherUser));
+          convListDiv.appendChild(convElement);
+        });
+      } catch (err) {
+        console.error('Error loading conversations:', err);
+      }
+    }
+
+    async function openConversation(conv, otherUser) {
+      currentChatRoom = getRoomName(currentUserId, otherUser._id);
+      socket.emit('join room', currentChatRoom);
+      document.getElementById('chatHeader').textContent = `Chat with ${otherUser.username}`;
+      document.getElementById('chatContainer').style.display = 'block';
+      await loadChatHistory(currentChatRoom);
+      
+      // Mark as read
+      await fetch('/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: currentChatRoom, userId: currentUserId })
+      });
+      loadConversations();
+    }
+
+    async function loadChatHistory(room) {
+      try {
+        const response = await fetch(`/chat-history/${room}`);
+        const messages = await response.json();
+        const chatWindow = document.getElementById('chatWindow');
+        chatWindow.innerHTML = messages.map(msg => `
+          <div class="mb-2 ${msg.sender._id === currentUserId ? 'text-right' : 'text-left'}">
+            <span class="inline-block p-2 rounded ${msg.sender._id === currentUserId ? 'bg-blue-500 text-white' : 'bg-gray-200'}">
+              ${msg.text}
+            </span>
+            <div class="text-xs text-gray-500 mt-1">
+              ${new Date(msg.createdAt).toLocaleTimeString()}
+              ${msg.read ? '✓✓' : '✓'}
+            </div>
+          </div>
+        `).join('');
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      } catch (err) {
+        console.error('Error loading chat history:', err);
+      }
+    }
+
+    // Message handling
+    document.getElementById('chatForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (!message || !currentChatRoom) return;
+
+      socket.emit('chat message', {
+        room: currentChatRoom,
+        sender: currentUsername,
+        senderId: currentUserId,
+        text: message
+      });
+      input.value = '';
+    });
+
+    socket.on('chat message', async (data) => {
+      if (data.room === currentChatRoom) {
+        await loadChatHistory(currentChatRoom);
+      }
+      loadConversations();
+    });
+
+    // Initial load
+    loadConversations();
+  </script>
+</body>
+</html>
