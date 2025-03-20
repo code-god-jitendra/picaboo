@@ -75,7 +75,6 @@ app.get('/', (req, res) => res.send('Welcome to Picaboo!'));
 app.get('/signup', (req, res) => res.sendFile(path.join(__dirname, 'views', 'signup.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'views', 'login.html')));
 app.get('/explore', (req, res) => res.sendFile(path.join(__dirname, 'views', 'explore.html')));
-app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'views', 'profile.html')));
 
 // Render inbox using EJS with injected user data
 app.get('/inbox', async (req, res) => {
@@ -155,6 +154,26 @@ app.post('/posts/:id/like', async (req, res) => {
   }
 });
 
+app.get('/profile', async (req, res) => {
+    const currentUserId = req.session.userId;
+    if (!currentUserId) return res.redirect('/login');
+    try {
+      const user = await User.findById(currentUserId);
+      // Get the user's posts
+      const posts = await Post.find({ user: currentUserId }).sort({ createdAt: -1 });
+      // Calculate friend count (assuming friends is an array on the user document)
+      const userFriendsCount = user.friends ? user.friends.length : 0;
+      res.render('profile', {
+        currentUsername: user.username,
+        userFriendsCount,
+        posts
+      });
+    } catch (err) {
+      console.error(err);
+      res.redirect('/login');
+    }
+  });
+  
 // -----------------------
 // UPLOAD IMAGE WITH CAPTION (GRIDFS)
 // -----------------------
@@ -195,6 +214,29 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     res.status(500).send('Error uploading image');
   }
 });
+
+app.delete('/post/:id', async (req, res) => {
+    const currentUserId = req.session.userId;
+    if (!currentUserId) return res.status(403).json({ message: 'Not authenticated' });
+    try {
+      const post = await Post.findById(req.params.id);
+      if (!post) return res.status(404).json({ message: 'Post not found' });
+      // Check if current user is the owner
+      if (post.user.toString() !== currentUserId) {
+        return res.status(403).json({ message: 'You can only delete your own posts' });
+      }
+      // Optionally, delete the image file from GridFS
+      gfsBucket.delete(post.imageFileId, (err) => {
+        if (err) console.error('Error deleting file from GridFS:', err);
+      });
+      await post.remove();
+      res.json({ message: 'Post deleted successfully' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Error deleting post' });
+    }
+  });
+  
 
 // -----------------------
 // IMAGE RETRIEVAL ROUTE (GRIDFS)
