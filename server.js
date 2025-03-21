@@ -218,25 +218,36 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 app.delete('/post/:id', async (req, res) => {
     const currentUserId = req.session.userId;
     if (!currentUserId) return res.status(403).json({ message: 'Not authenticated' });
+    
     try {
       const post = await Post.findById(req.params.id);
       if (!post) return res.status(404).json({ message: 'Post not found' });
-      // Check if current user is the owner
+  
+      // Verify ownership
       if (post.user.toString() !== currentUserId) {
-        return res.status(403).json({ message: 'You can only delete your own posts' });
+        return res.status(403).json({ message: 'Unauthorized to delete this post' });
       }
-      // Optionally, delete the image file from GridFS
-      gfsBucket.delete(post.imageFileId, (err) => {
-        if (err) console.error('Error deleting file from GridFS:', err);
-      });
-      await post.remove();
+  
+      // Attempt to delete image but proceed regardless of result
+      try {
+        await gfsBucket.delete(post.imageFileId);
+      } catch (err) {
+        console.error('GridFS deletion error:', err.message);
+        // Proceed with post deletion even if image is missing
+      }
+  
+      // Delete the post document
+      await Post.deleteOne({ _id: post._id });
+  
       res.json({ message: 'Post deleted successfully' });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Error deleting post' });
+      console.error('Delete error:', err);
+      res.status(500).json({ 
+        message: 'Error deleting post',
+        error: err.message
+      });
     }
   });
-  
 
 // -----------------------
 // IMAGE RETRIEVAL ROUTE (GRIDFS)
