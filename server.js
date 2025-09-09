@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const http = require('http');
@@ -36,7 +35,7 @@ app.use(express.static('public'));
 // -----------------------
 // MONGODB CONNECTION
 // -----------------------
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect('mongodb+srv://picaboobyjitendra:picaboobyjitendra@hexgames.jvjoh.mongodb.net/picaboo?retryWrites=true&w=majority&appName=hexGames', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
